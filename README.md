@@ -20,7 +20,7 @@ One orchestrator, `briefing.py`, runs four stages:
 | 1. Fetch | `jarvis/fetch.py` | Read RSS feeds from `feeds.yaml`, keep the last 24h, dedupe by title similarity → ~40 candidates. |
 | 2. Curate | `jarvis/curate.py` | Claude selects **exactly 10** stories and returns strict JSON. Malformed output retries once, then fails loudly. |
 | 3. Write | `jarvis/write.py` | Claude writes an intro, 2–3 spoken paragraphs per story, and a closing *Bigger Picture* — one plain-text narration script. |
-| 4. Narrate | `jarvis/narrate.py` | ElevenLabs synthesises `output/briefing_YYYY-MM-DD.mp3`. Falls back to macOS `say` if no key. |
+| 4. Narrate | `jarvis/narrate.py` | ElevenLabs synthesises `output/briefing_YYYY-MM-DD.mp3`. Falls back to macOS `say` (→ `.m4a`, iPhone-native) if no key. |
 
 Both LLM SDKs sit behind one thin wrapper, `jarvis/llm.py`, exposing a single
 `call(provider, model, system, prompt) -> str`. Models and providers are

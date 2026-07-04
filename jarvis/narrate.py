@@ -2,7 +2,7 @@
 
 Send the narration script to ElevenLabs and save a dated MP3. If no ElevenLabs
 key is configured, fall back to the macOS ``say`` command so the pipeline still
-produces audio on a Mac.
+produces audio on a Mac — as a `.m4a` (AAC), since macOS cannot encode MP3.
 """
 
 from __future__ import annotations
@@ -69,31 +69,28 @@ def _narrate_elevenlabs(script: str, output_path: Path) -> Path:
 
 
 def _narrate_macos_say(script: str, output_path: Path) -> Path:
-    """Fallback TTS via macOS `say` → AIFF → `afconvert` → MP3."""
+    """Fallback TTS via macOS `say`, producing an iPhone-native AAC `.m4a`.
+
+    macOS cannot encode MP3, so the fallback writes `.m4a` (AAC in an MP4
+    container) instead — iPhones play it natively and the extension is honest.
+    The returned path therefore differs from the ElevenLabs `.mp3` path.
+    """
     if not shutil.which("say"):
         raise NarrationError(
             "No ElevenLabs key and macOS `say` is unavailable. Set ELEVENLABS_API_KEY "
             "or run on macOS. Use --dry-run to skip narration entirely."
         )
 
+    m4a_path = output_path.with_suffix(".m4a")
     with tempfile.TemporaryDirectory() as tmp:
-        aiff = Path(tmp) / "briefing.aiff"
+        # Read the script from a file so long briefings never hit argv limits.
+        script_file = Path(tmp) / "script.txt"
+        script_file.write_text(script, encoding="utf-8")
         # "Daniel" is a calm British male voice — a reasonable JARVIS stand-in.
         subprocess.run(
-            ["say", "-v", "Daniel", "-o", str(aiff), script],
+            ["say", "-v", "Daniel", "--data-format=aac", "-f", str(script_file), "-o", str(m4a_path)],
             check=True,
         )
-        if shutil.which("afconvert"):
-            subprocess.run(
-                ["afconvert", str(aiff), str(output_path), "-f", "mp4f", "-d", "aac"],
-                check=True,
-            )
-        else:
-            # No afconvert: keep the AIFF alongside the intended path.
-            fallback = output_path.with_suffix(".aiff")
-            shutil.copy(aiff, fallback)
-            log.warning("afconvert missing; wrote %s instead of MP3", fallback)
-            return fallback
 
-    log.info("Wrote %s via macOS say", output_path)
-    return output_path
+    log.info("Wrote %s via macOS say", m4a_path)
+    return m4a_path

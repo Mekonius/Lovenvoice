@@ -12,6 +12,7 @@ venv/
 
 # Generated artefacts
 output/*.mp3
+output/*.m4a
 runs/*/
 
 # OS
