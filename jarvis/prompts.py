@@ -27,7 +27,7 @@ CURATE_SYSTEM = (
 # Appended to the verbatim prompt to lock the output schema. Kept separate so
 # the editorial voice above stays exactly as specified.
 CURATE_SCHEMA_INSTRUCTION = """
-Return ONLY a JSON array of exactly 10 objects. No prose, no markdown fences.
+Return ONLY a JSON array of exactly {count} objects. No prose, no markdown fences.
 Each object must have exactly these keys:
   "headline":     string  — a concise, factual headline for the story
   "countries":    array of strings — countries/regions involved (ISO or common names)
