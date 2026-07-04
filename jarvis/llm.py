@@ -11,9 +11,13 @@ that is only imported when actually selected.
 
 from __future__ import annotations
 
+import logging
+
 import requests
 
 from .config import settings
+
+log = logging.getLogger(__name__)
 
 # Shared generation defaults. Kept conservative — briefings are short.
 _MAX_TOKENS = 4096
@@ -36,21 +40,59 @@ def call(provider: str, model: str, system: str, prompt: str) -> str:
 
     Raises:
         ValueError: Unknown provider or missing API key.
-        RuntimeError: The provider SDK is not installed, or a local call failed.
+        RuntimeError: The provider SDK is not installed, or a call failed.
+
+    If the primary call fails (e.g. a free-tier rate limit) and a ready
+    fallback provider is configured (``FALLBACK_PROVIDER`` / ``FALLBACK_MODEL``,
+    default ``groq``), the request is transparently retried there.
     """
-    provider = (provider or "anthropic").lower()
+    primary = provider or "anthropic"
+    try:
+        return _dispatch(primary, model, system, prompt)
+    except Exception as primary_exc:  # noqa: BLE001 - fall back on any provider failure
+        fb_provider = (settings.fallback_provider or "").lower()
+        fb_model = settings.fallback_model
+        if fb_provider and fb_provider != primary.lower() and _provider_ready(fb_provider):
+            log.warning(
+                "Primary LLM %s/%s failed (%s); falling back to %s/%s",
+                primary, model, primary_exc, fb_provider, fb_model,
+            )
+            try:
+                return _dispatch(fb_provider, fb_model, system, prompt)
+            except Exception as fb_exc:  # noqa: BLE001 - report both failures
+                raise RuntimeError(
+                    f"Both primary ({primary}/{model}) and fallback "
+                    f"({fb_provider}/{fb_model}) LLM calls failed. "
+                    f"Primary error: {primary_exc}. Fallback error: {fb_exc}"
+                ) from fb_exc
+        raise
+
+
+def _dispatch(provider: str, model: str, system: str, prompt: str) -> str:
+    """Route one call to a single provider (no fallback)."""
+    provider = provider.lower()
     if provider == "anthropic":
         return _call_anthropic(model, system, prompt)
     if provider == "openai":
         return _call_openai(model, system, prompt)
     if provider == "gemini":
         return _call_gemini(model, system, prompt)
+    if provider == "groq":
+        return _call_groq(model, system, prompt)
     if provider == "ollama":
         return _call_ollama(model, system, prompt)
     raise ValueError(
         f"Unknown LLM provider: {provider!r} "
-        "(expected 'gemini', 'anthropic', 'openai', or 'ollama')"
+        "(expected 'gemini', 'groq', 'anthropic', 'openai', or 'ollama')"
     )
+
+
+def _provider_ready(provider: str) -> bool:
+    """True if ``provider`` has what it needs to run (key present, or keyless)."""
+    provider = provider.lower()
+    if provider == "ollama":
+        return True  # local, no key
+    return bool(settings.provider_key(provider))
 
 
 def _call_anthropic(model: str, system: str, prompt: str) -> str:
@@ -93,6 +135,38 @@ def _call_openai(model: str, system: str, prompt: str) -> str:
         ],
     )
     return (completion.choices[0].message.content or "").strip()
+
+
+_GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+
+def _call_groq(model: str, system: str, prompt: str) -> str:
+    """Call Groq's free, fast, OpenAI-compatible API (only needs ``requests``).
+
+    Get a key at https://console.groq.com/keys (no credit card).
+    """
+    if not settings.groq_api_key:
+        raise ValueError("GROQ_API_KEY is not set but a stage is using provider 'groq'.")
+    resp = requests.post(
+        _GROQ_URL,
+        headers={
+            "Authorization": f"Bearer {settings.groq_api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": _TEMPERATURE,
+            "max_tokens": _MAX_TOKENS,
+        },
+        timeout=120,
+    )
+    if resp.status_code != 200:
+        raise RuntimeError(f"Groq error {resp.status_code}: {resp.text[:400]}")
+    return (resp.json()["choices"][0]["message"]["content"] or "").strip()
 
 
 _GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"

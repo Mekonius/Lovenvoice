@@ -38,6 +38,11 @@ jobs:
           CURATE_MODEL: gemini-2.0-flash
           WRITE_MODEL: gemini-2.0-flash
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Optional automatic fallback if Gemini rate-limits. Add a GROQ_API_KEY
+          # secret to enable; leave it unset and fallback simply won't fire.
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          FALLBACK_PROVIDER: groq
+          FALLBACK_MODEL: llama-3.3-70b-versatile
           # TTS: free Edge neural voice (no macOS `say` on Linux)
           TTS_PROVIDER: edge
           EDGE_TTS_VOICE: en-GB-RyanNeural

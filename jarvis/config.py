@@ -37,6 +37,14 @@ class Settings:
     anthropic_api_key: str = field(default_factory=lambda: _env("ANTHROPIC_API_KEY"))
     openai_api_key: str = field(default_factory=lambda: _env("OPENAI_API_KEY"))
     gemini_api_key: str = field(default_factory=lambda: _env("GEMINI_API_KEY"))
+    groq_api_key: str = field(default_factory=lambda: _env("GROQ_API_KEY"))
+
+    # Automatic fallback if the primary provider fails (e.g. free-tier rate
+    # limit). Only fires if the fallback provider has a key configured.
+    fallback_provider: str = field(default_factory=lambda: _env("FALLBACK_PROVIDER", "groq"))
+    fallback_model: str = field(
+        default_factory=lambda: _env("FALLBACK_MODEL", "llama-3.3-70b-versatile")
+    )
 
     curate_provider: str = field(default_factory=lambda: _env("CURATE_PROVIDER", "anthropic"))
     write_provider: str = field(default_factory=lambda: _env("WRITE_PROVIDER", "anthropic"))
@@ -75,6 +83,8 @@ class Settings:
         return {
             "anthropic": self.anthropic_api_key,
             "openai": self.openai_api_key,
+            "gemini": self.gemini_api_key,
+            "groq": self.groq_api_key,
         }.get(provider, "")
 
 

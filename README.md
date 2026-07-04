@@ -102,9 +102,11 @@ git-ignored.
 
 | Key | Required | Purpose |
 |-----|----------|---------|
-| `CURATE_PROVIDER` / `WRITE_PROVIDER` | No | `gemini` (default, free cloud), `ollama` (free local), `anthropic`, or `openai`. |
+| `CURATE_PROVIDER` / `WRITE_PROVIDER` | No | `gemini` (default, free cloud), `groq`, `ollama` (free local), `anthropic`, or `openai`. |
 | `CURATE_MODEL` / `WRITE_MODEL` | No | Model id per stage. Defaults: `gemini-2.0-flash`. |
 | `GEMINI_API_KEY` | If provider is `gemini` | Free key from https://aistudio.google.com/apikey. |
+| `GROQ_API_KEY` | No | Free key from https://console.groq.com/keys. Enables auto-fallback. |
+| `FALLBACK_PROVIDER` / `FALLBACK_MODEL` | No | Retry target if the primary fails. Defaults `groq` / `llama-3.3-70b-versatile`; only fires if the fallback's key is set. |
 | `OLLAMA_BASE_URL` | No | Local Ollama address. Default `http://localhost:11434`. |
 | `ANTHROPIC_API_KEY` | Only if provider is `anthropic` | Curation + writing via the Anthropic API. |
 | `OPENAI_API_KEY` | Only if provider is `openai` | Curation + writing via the OpenAI API. |
@@ -198,6 +200,7 @@ with Google, "Create API key"; no credit card).
 | Secret | Value |
 |--------|-------|
 | `GEMINI_API_KEY` | your Gemini key |
+| `GROQ_API_KEY` | *(optional)* free Groq key for automatic fallback — see below |
 | `R2_ACCOUNT_ID` | Cloudflare account id |
 | `R2_ACCESS_KEY_ID` | R2 token access key id |
 | `R2_SECRET_ACCESS_KEY` | R2 token secret |
@@ -206,6 +209,16 @@ with Google, "Create API key"; no credit card).
 **4. Run it** — *Actions* tab → *Jarvis Briefing* → *Run workflow* to test
 immediately, or wait for the daily schedule. Each run uploads a dated
 `briefing_YYYY-MM-DD.mp3` **and** overwrites a stable `latest.mp3` in the bucket.
+
+### Automatic fallback (optional, recommended)
+
+Gemini's free tier has daily rate limits. To make sure a busy morning never
+kills your briefing, add a **free Groq** key (https://console.groq.com/keys, no
+card) as a `GROQ_API_KEY` secret. If any Gemini call fails, the request is
+transparently retried on Groq (`llama-3.3-70b-versatile`) — you still get a
+briefing. Leave the key unset and fallback simply doesn't fire; nothing else
+changes. Configurable via `FALLBACK_PROVIDER` / `FALLBACK_MODEL` (set to any
+supported provider, or blank to disable).
 
 **Schedule / timezone:** the cron is `45 5 * * *` **UTC** = 06:45 CET (winter) /
 07:45 CEST (summer) — GitHub cron can't follow DST. Edit the `cron:` line in the
