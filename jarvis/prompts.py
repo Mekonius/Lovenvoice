@@ -42,14 +42,21 @@ Each object must have exactly these keys:
 
 # ── Stage 3: Write ──────────────────────────────────────────────────────────
 WRITE_SYSTEM = (
-    "You write spoken-word narration for a personal morning news briefing, in "
-    "the voice of an experienced international correspondent — calm, intelligent, "
-    "and measured. You explain why a story matters, who is involved, and what "
-    "happens next. You never read like a headline or a press release. You "
-    "include honest caveats where they exist. Your output is plain spoken prose "
-    "meant to be read aloud by a text-to-speech voice: no markdown, no headers, "
-    "no bullet points, no stage directions, no labels like 'story one'. Write "
-    "only the words to be spoken."
+    "You write a personal spoken-word morning briefing for a single listener, in "
+    "the voice of a seasoned foreign correspondent filing their reader's private "
+    "morning newspaper. You are calm, intelligent, and warm — someone who has read "
+    "widely and thought carefully — never breathless, never a press release, and "
+    "never a flat list of facts. For each story you set the scene, explain what "
+    "actually happened and who is involved, and make plain why it matters beyond "
+    "the moment. Where it genuinely enriches understanding, you add a line of "
+    "background or historical perspective — how we got here, what came before, or "
+    "how this compares — but you never pad for its own sake. You draw quiet "
+    "connections between stories when they rhyme, so the briefing reads as one "
+    "considered whole rather than disconnected items. You include honest caveats "
+    "where they exist, without deflating the story. Write flowing, human prose to "
+    "be read aloud by a text-to-speech voice: no markdown, headers, bullet points, "
+    "emoji, section labels, country tags, or stage directions. Write only the "
+    "words to be spoken."
 )
 
 
@@ -57,10 +64,13 @@ def story_prompt(story: dict) -> str:
     """Build the user prompt asking for one story's 2–3 spoken paragraphs."""
     countries = ", ".join(story.get("countries", [])) or "unspecified"
     return (
-        "Write two to three spoken paragraphs narrating the following story for "
-        "the briefing. Flow naturally as continuous speech — do not name the "
-        "category or label, and do not restate the headline verbatim. Weave in "
-        "why it matters and any honest caveat.\n\n"
+        "Narrate the following story as two to three flowing spoken paragraphs for "
+        "the briefing. Set the scene, explain what happened and who is involved, and "
+        "make clear why it matters beyond the moment. Where it genuinely enriches "
+        "the story, add a sentence of background or historical perspective. Fold in "
+        "any honest caveat naturally. Flow as continuous speech — do not name the "
+        "category or label, do not restate the headline verbatim, and never read "
+        "any tags or metadata aloud.\n\n"
         f"Headline: {story['headline']}\n"
         f"Category: {story.get('category', 'n/a')}\n"
         f"Label: {story.get('label', 'n/a')}\n"
@@ -86,11 +96,12 @@ def closing_prompt(stories: list[dict]) -> str:
     """Prompt for the 'Bigger Picture' closing segment."""
     headlines = "\n".join(f"- {s['headline']} [{s.get('category', '')}]" for s in stories)
     return (
-        "Write the closing segment of the briefing, titled in spirit 'The Bigger "
-        "Picture' (but do not speak a header — just deliver the reflection). In "
-        "two to three spoken paragraphs, connect the day's stories into a single "
-        "narrative thread: what, taken together, they suggest about where the "
-        "world is heading. Calm and honest, not saccharine. End with a brief, "
-        "warm sign-off.\n\n"
+        "Write the correspondent's closing reflection — the 'bigger picture'. In two "
+        "to three spoken paragraphs, draw the day's stories together into a single "
+        "thread: what, taken as a whole, they suggest about where the world is "
+        "heading, with a touch of perspective on how meaningful progress tends to "
+        "accumulate quietly over years rather than in headlines. Thoughtful and "
+        "honest, not saccharine. Do not speak a header and do not list the stories "
+        "mechanically. End with a brief, warm sign-off.\n\n"
         f"Today's stories:\n{headlines}"
     )
