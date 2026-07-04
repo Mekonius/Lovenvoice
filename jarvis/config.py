@@ -42,6 +42,11 @@ class Settings:
     curate_model: str = field(default_factory=lambda: _env("CURATE_MODEL", "claude-sonnet-5"))
     write_model: str = field(default_factory=lambda: _env("WRITE_MODEL", "claude-sonnet-5"))
 
+    # Local Ollama server (free, offline). Used when a provider is "ollama".
+    ollama_base_url: str = field(
+        default_factory=lambda: _env("OLLAMA_BASE_URL", "http://localhost:11434")
+    )
+
     # ── ElevenLabs TTS ──
     elevenlabs_api_key: str = field(default_factory=lambda: _env("ELEVENLABS_API_KEY"))
     elevenlabs_voice_id: str = field(default_factory=lambda: _env("ELEVENLABS_VOICE_ID"))
