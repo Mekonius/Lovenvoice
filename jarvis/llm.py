@@ -12,6 +12,8 @@ that is only imported when actually selected.
 from __future__ import annotations
 
 import logging
+import re
+import time
 
 import requests
 
@@ -22,6 +24,18 @@ log = logging.getLogger(__name__)
 # Shared generation defaults. Kept conservative — briefings are short.
 _MAX_TOKENS = 4096
 _TEMPERATURE = 0.4
+
+# Retry a rate-limited (429) provider this many times before giving up on it.
+_RETRY_MAX = 5
+_RETRY_CAP_SECONDS = 30.0
+
+
+class RateLimitError(RuntimeError):
+    """A provider returned HTTP 429. ``retry_after`` is seconds to wait, if known."""
+
+    def __init__(self, message: str, retry_after: float | None = None):
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 def call(provider: str, model: str, system: str, prompt: str) -> str:
@@ -42,13 +56,14 @@ def call(provider: str, model: str, system: str, prompt: str) -> str:
         ValueError: Unknown provider or missing API key.
         RuntimeError: The provider SDK is not installed, or a call failed.
 
-    If the primary call fails (e.g. a free-tier rate limit) and a ready
-    fallback provider is configured (``FALLBACK_PROVIDER`` / ``FALLBACK_MODEL``,
-    default ``groq``), the request is transparently retried there.
+    Free-tier rate limits (HTTP 429) on the primary are retried with backoff
+    (honouring the provider's suggested wait). If the primary still fails and a
+    ready fallback provider is configured (``FALLBACK_PROVIDER`` /
+    ``FALLBACK_MODEL``), the request is retried once there.
     """
     primary = provider or "anthropic"
     try:
-        return _dispatch(primary, model, system, prompt)
+        return _dispatch_retrying(primary, model, system, prompt)
     except Exception as primary_exc:  # noqa: BLE001 - fall back on any provider failure
         fb_provider = (settings.fallback_provider or "").lower()
         fb_model = settings.fallback_model
@@ -66,6 +81,42 @@ def call(provider: str, model: str, system: str, prompt: str) -> str:
                     f"Primary error: {primary_exc}. Fallback error: {fb_exc}"
                 ) from fb_exc
         raise
+
+
+def _dispatch_retrying(provider: str, model: str, system: str, prompt: str) -> str:
+    """Dispatch, retrying on rate-limit (429) with the provider's suggested wait."""
+    for attempt in range(_RETRY_MAX + 1):
+        try:
+            return _dispatch(provider, model, system, prompt)
+        except RateLimitError as exc:
+            if attempt >= _RETRY_MAX:
+                raise
+            wait = min(exc.retry_after or 5.0, _RETRY_CAP_SECONDS) + 0.5
+            log.warning(
+                "Rate limited by %s/%s (attempt %d/%d); waiting %.1fs then retrying",
+                provider, model, attempt + 1, _RETRY_MAX, wait,
+            )
+            time.sleep(wait)
+    raise RuntimeError("unreachable")  # pragma: no cover
+
+
+def _retry_after_seconds(resp: requests.Response) -> float | None:
+    """Best-effort extraction of how long to wait from a 429 response."""
+    header = resp.headers.get("retry-after")
+    if header:
+        try:
+            return float(header)
+        except ValueError:
+            pass
+    # Groq: "...Please try again in 6.305s." ; Gemini: "retryDelay": "5s"
+    for pattern in (r"try again in ([\d.]+)s", r'"retryDelay":\s*"([\d.]+)s"'):
+        match = re.search(pattern, resp.text)
+        if match:
+            try:
+                return float(match.group(1))
+            except ValueError:
+                pass
+    return None
 
 
 def _dispatch(provider: str, model: str, system: str, prompt: str) -> str:
@@ -164,6 +215,8 @@ def _call_groq(model: str, system: str, prompt: str) -> str:
         },
         timeout=120,
     )
+    if resp.status_code == 429:
+        raise RateLimitError(f"Groq error 429: {resp.text[:300]}", _retry_after_seconds(resp))
     if resp.status_code != 200:
         raise RuntimeError(f"Groq error {resp.status_code}: {resp.text[:400]}")
     return (resp.json()["choices"][0]["message"]["content"] or "").strip()
@@ -189,6 +242,8 @@ def _call_gemini(model: str, system: str, prompt: str) -> str:
     resp = requests.post(
         url, params={"key": settings.gemini_api_key}, json=payload, timeout=120
     )
+    if resp.status_code == 429:
+        raise RateLimitError(f"Gemini error 429: {resp.text[:300]}", _retry_after_seconds(resp))
     if resp.status_code != 200:
         raise RuntimeError(f"Gemini error {resp.status_code}: {resp.text[:400]}")
     data = resp.json()
