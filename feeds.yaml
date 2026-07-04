@@ -1,0 +1,57 @@
+# ── Jarvis Briefing feed list ───────────────────────────────────────────────
+# Editable RSS/Atom sources for Stage 1 (Fetch).
+#
+# To add a feed: append a `- name: ... url: ...` entry under `feeds`.
+# `name` becomes the "source" attribute on every candidate story.
+# Feeds that fail to load are skipped with a warning — one bad URL won't
+# break the run.
+#
+# Seeded with science / health / climate / tech desks that publish
+# consequential, verifiable progress rather than clickbait.
+
+feeds:
+  # ── Science ──
+  - name: Nature News
+    url: https://www.nature.com/nature.rss
+  - name: Science Daily (Top)
+    url: https://www.sciencedaily.com/rss/top/science.xml
+  - name: Quanta Magazine
+    url: https://api.quantamagazine.org/feed/
+
+  # ── Space ──
+  - name: ESA Top News
+    url: https://www.esa.int/rssfeed/Our_Activities/Space_News
+  - name: NASA Breaking News
+    url: https://www.nasa.gov/news-release/feed/
+
+  # ── Health / medicine ──
+  - name: WHO News
+    url: https://www.who.int/rss-feeds/news-english.xml
+  - name: STAT News
+    url: https://www.statnews.com/feed/
+
+  # ── Climate / energy / environment ──
+  - name: IEA News
+    url: https://www.iea.org/news/rss
+  - name: Yale Environment 360
+    url: https://e360.yale.edu/feed.xml
+  - name: Carbon Brief
+    url: https://www.carbonbrief.org/feed/
+
+  # ── Technology / AI ──
+  - name: MIT News
+    url: https://news.mit.edu/rss/feed
+  - name: MIT Technology Review
+    url: https://www.technologyreview.com/feed/
+
+  # ── University press rooms ──
+  - name: Stanford News
+    url: https://news.stanford.edu/feed/
+  - name: Harvard Gazette
+    url: https://news.harvard.edu/gazette/feed/
+  - name: University of Oxford News
+    url: https://www.ox.ac.uk/news/science-blog.xml
+
+  # ── Conservation / wildlife ──
+  - name: Mongabay
+    url: https://news.mongabay.com/feed/

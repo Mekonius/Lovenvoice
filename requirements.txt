@@ -1,0 +1,9 @@
+# Core pipeline dependencies
+anthropic>=0.40.0        # Stage 2/3 LLM calls (default provider)
+feedparser>=6.0.11       # Stage 1 RSS parsing
+PyYAML>=6.0.2            # feeds.yaml + config parsing
+python-dotenv>=1.0.1     # load secrets from .env
+requests>=2.32.0         # ElevenLabs HTTP calls (Stage 4)
+
+# Optional provider swap — only needed if you set *_PROVIDER=openai
+openai>=1.51.0
