@@ -19,6 +19,13 @@ permissions:
 jobs:
   briefing:
     runs-on: ubuntu-latest
+    # R2 creds live at job level so the upload step can be skipped when unset.
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
     steps:
       - uses: actions/checkout@v4
 
@@ -51,13 +58,24 @@ jobs:
           BRIEFING_TIMEZONE: Europe/Copenhagen
         run: python briefing.py
 
+      # Always attach the audio to the run — download & play it straight from
+      # the Actions page. This needs NO cloud setup, so a first run works with
+      # only GEMINI_API_KEY configured.
+      - name: Upload briefing audio as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: briefing-audio
+          path: |
+            output/*.mp3
+            output/*.m4a
+          retention-days: 14
+          if-no-files-found: warn
+
+      # Optional hands-off phone delivery. Skipped automatically unless you've
+      # added the R2 secrets (R2_BUCKET etc.).
       - name: Upload MP3 to Cloudflare R2
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        if: ${{ env.R2_BUCKET != '' }}
         run: |
           set -euo pipefail
           FILE=$(ls -t output/briefing_*.mp3 | head -1)

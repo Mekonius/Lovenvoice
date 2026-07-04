@@ -183,12 +183,21 @@ yours runs 24/7. For a public repo, Actions minutes are free and unlimited, so
 this whole path costs **$0**: Gemini (free LLM tier), edge-tts (free voice), and
 Cloudflare R2 (free 10 GB) to host the MP3 for your phone.
 
-The workflow lives at `.github/workflows/briefing.yml`. One-time setup:
+The workflow lives at `.github/workflows/briefing.yml`.
+
+> **Smallest first run:** you only need **`GEMINI_API_KEY`**. Every run attaches
+> the finished MP3 as a downloadable **artifact** on the Actions page, so you can
+> generate and listen to a briefing with zero cloud storage set up. The
+> Cloudflare R2 step (steps 2 below) is *optional* — it's skipped automatically
+> until you add the R2 secrets, and only exists to auto-deliver the file to your
+> phone. Do step 1, run it, hear it — then add R2 later.
+
+One-time setup:
 
 **1. Get a free Gemini API key** — https://aistudio.google.com/apikey (sign in
 with Google, "Create API key"; no credit card).
 
-**2. Create a Cloudflare R2 bucket + API token**
+**2. (Optional — for hands-off phone delivery) Create a Cloudflare R2 bucket + API token**
 - Cloudflare dashboard → **R2** → *Create bucket* (e.g. `jarvis-briefing`).
 - R2 → *Manage API Tokens* → *Create API Token* with **Object Read & Write** on
   that bucket. Note the **Access Key ID**, **Secret Access Key**, and your
@@ -206,9 +215,12 @@ with Google, "Create API key"; no credit card).
 | `R2_SECRET_ACCESS_KEY` | R2 token secret |
 | `R2_BUCKET` | bucket name (e.g. `jarvis-briefing`) |
 
-**4. Run it** — *Actions* tab → *Jarvis Briefing* → *Run workflow* to test
-immediately, or wait for the daily schedule. Each run uploads a dated
-`briefing_YYYY-MM-DD.mp3` **and** overwrites a stable `latest.mp3` in the bucket.
+**4. Run it** — GitHub only runs scheduled/manual workflows from the **default
+branch**, so make sure this workflow is on `main` first (merge the PR if it
+isn't). Then *Actions* tab → *Jarvis Briefing* → *Run workflow*. When it
+finishes, open the run and download the **`briefing-audio`** artifact to listen.
+If you added the R2 secrets, each run also uploads a dated
+`briefing_YYYY-MM-DD.mp3` **and** a stable `latest.mp3` to the bucket.
 
 ### Automatic fallback (optional, recommended)
 
