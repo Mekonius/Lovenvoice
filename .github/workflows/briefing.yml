@@ -44,17 +44,19 @@ jobs:
           # its free quota ever activates it'll be used when Groq rate-limits.
           CURATE_PROVIDER: groq
           WRITE_PROVIDER: groq
-          # 70B for editorial judgment (1 call); lighter/faster 8B for the ~12
-          # writing calls — a separate rate-limit bucket eases free-tier TPM.
+          # 70B for both curation judgment and richer correspondent prose. The
+          # rate-limit retry/backoff in llm.py absorbs Groq's free-tier TPM limit.
           CURATE_MODEL: llama-3.3-70b-versatile
-          WRITE_MODEL: llama-3.1-8b-instant
+          WRITE_MODEL: llama-3.3-70b-versatile
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           FALLBACK_PROVIDER: gemini
           FALLBACK_MODEL: gemini-2.0-flash
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # TTS: free Edge neural voice (no macOS `say` on Linux)
           TTS_PROVIDER: edge
-          EDGE_TTS_VOICE: en-GB-RyanNeural
+          # Calm British female. Swap for en-GB-LibbyNeural, en-US-AriaNeural,
+          # or en-US-JennyNeural to taste (edge-tts --list-voices).
+          EDGE_TTS_VOICE: en-GB-SoniaNeural
           # Personalisation
           LISTENER_NAME: Kenneth
           BRIEFING_TIMEZONE: Europe/Copenhagen
