@@ -5,5 +5,12 @@ PyYAML>=6.0.2            # feeds.yaml + config parsing
 python-dotenv>=1.0.1     # load secrets from .env
 requests>=2.32.0         # ElevenLabs HTTP calls (Stage 4)
 
+# Free cloud TTS (Microsoft Edge neural voices) — used when TTS_PROVIDER=edge
+# or auto with no ElevenLabs key. Works on Linux (GitHub Actions).
+edge-tts>=6.1.0
+
 # Optional provider swap — only needed if you set *_PROVIDER=openai
 openai>=1.51.0
+
+# Note: the "gemini" and "ollama" providers use plain HTTP (requests) — no
+# extra SDK required.

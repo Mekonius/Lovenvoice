@@ -28,20 +28,64 @@ class NarrationError(RuntimeError):
 
 
 def narrate(script: str, output_path: Path) -> Path:
-    """Synthesise ``script`` to ``output_path`` (an .mp3). Returns the path.
+    """Synthesise ``script`` to audio near ``output_path``. Returns the path.
 
-    Uses ElevenLabs when a key is set; otherwise falls back to macOS ``say``.
+    Provider selection follows ``TTS_PROVIDER``:
+
+    - ``elevenlabs`` — paid, highest quality (needs a key + voice id).
+    - ``edge``       — free Microsoft Edge neural voices, no key. Cloud-friendly
+                       (works on Linux/GitHub Actions). Writes ``.mp3``.
+    - ``say``        — macOS ``say`` (offline, Mac only). Writes ``.m4a``.
+    - ``auto`` (default) — try elevenlabs → edge → say, first available wins.
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    choice = settings.tts_provider.lower()
 
-    if settings.elevenlabs_api_key:
+    if choice in ("elevenlabs", "auto") and settings.elevenlabs_api_key:
         if not settings.elevenlabs_voice_id:
             raise NarrationError("ELEVENLABS_API_KEY set but ELEVENLABS_VOICE_ID is missing.")
         log.info("Narrating via ElevenLabs (voice=%s)", settings.elevenlabs_voice_id)
         return _narrate_elevenlabs(script, output_path)
 
-    log.info("No ElevenLabs key; falling back to macOS `say`")
-    return _narrate_macos_say(script, output_path)
+    if choice == "elevenlabs":
+        raise NarrationError("TTS_PROVIDER=elevenlabs but ELEVENLABS_API_KEY is not set.")
+
+    if choice in ("edge", "auto"):
+        log.info("Narrating via edge-tts (voice=%s)", settings.edge_tts_voice)
+        return _narrate_edge_tts(script, output_path)
+
+    if choice == "say":
+        log.info("Narrating via macOS `say`")
+        return _narrate_macos_say(script, output_path)
+
+    raise NarrationError(
+        f"Unknown TTS_PROVIDER {settings.tts_provider!r} "
+        "(expected 'auto', 'elevenlabs', 'edge', or 'say')."
+    )
+
+
+def _narrate_edge_tts(script: str, output_path: Path) -> Path:
+    """Free neural TTS via Microsoft Edge voices. No API key; writes .mp3."""
+    try:
+        import asyncio
+
+        import edge_tts
+    except ImportError as exc:  # pragma: no cover - install guard
+        raise NarrationError("edge-tts not installed. Run: pip install edge-tts") from exc
+
+    mp3_path = output_path.with_suffix(".mp3")
+
+    async def _run() -> None:
+        communicate = edge_tts.Communicate(script, settings.edge_tts_voice)
+        await communicate.save(str(mp3_path))
+
+    try:
+        asyncio.run(_run())
+    except Exception as exc:  # noqa: BLE001 - surface network/voice errors clearly
+        raise NarrationError(f"edge-tts synthesis failed: {exc}") from exc
+
+    log.info("Wrote %s via edge-tts", mp3_path)
+    return mp3_path
 
 
 def _narrate_elevenlabs(script: str, output_path: Path) -> Path:

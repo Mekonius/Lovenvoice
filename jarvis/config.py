@@ -36,6 +36,7 @@ class Settings:
     # ── LLM providers / models (per stage, swappable via .env) ──
     anthropic_api_key: str = field(default_factory=lambda: _env("ANTHROPIC_API_KEY"))
     openai_api_key: str = field(default_factory=lambda: _env("OPENAI_API_KEY"))
+    gemini_api_key: str = field(default_factory=lambda: _env("GEMINI_API_KEY"))
 
     curate_provider: str = field(default_factory=lambda: _env("CURATE_PROVIDER", "anthropic"))
     write_provider: str = field(default_factory=lambda: _env("WRITE_PROVIDER", "anthropic"))
@@ -45,6 +46,14 @@ class Settings:
     # Local Ollama server (free, offline). Used when a provider is "ollama".
     ollama_base_url: str = field(
         default_factory=lambda: _env("OLLAMA_BASE_URL", "http://localhost:11434")
+    )
+
+    # ── Text-to-speech ──
+    # Which narrator to use: "auto" tries elevenlabs → edge → macOS say.
+    tts_provider: str = field(default_factory=lambda: _env("TTS_PROVIDER", "auto"))
+    # edge-tts voice (free, cloud-friendly). A calm British male JARVIS-alike.
+    edge_tts_voice: str = field(
+        default_factory=lambda: _env("EDGE_TTS_VOICE", "en-GB-RyanNeural")
     )
 
     # ── ElevenLabs TTS ──

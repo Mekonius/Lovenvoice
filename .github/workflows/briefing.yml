@@ -1,0 +1,72 @@
+name: Jarvis Briefing
+
+# Runs the whole pipeline in the cloud on a schedule — no personal server needed.
+# GitHub provides the "always-on" scheduler; nothing of yours runs 24/7.
+
+on:
+  schedule:
+    # GitHub cron is UTC. Copenhagen is UTC+1 (winter) / UTC+2 (summer, DST),
+    # so a single line can't hit 06:45 local year-round.
+    # 05:45 UTC = 06:45 CET (winter) / 07:45 CEST (summer).
+    # For 06:45 in summer instead, change to '45 4 * * *'.
+    - cron: "45 5 * * *"
+  workflow_dispatch: {} # lets you run it manually from the Actions tab
+
+# Needed only if you later switch delivery to committing files / Releases.
+permissions:
+  contents: read
+
+jobs:
+  briefing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate briefing
+        env:
+          # LLM: free Gemini tier
+          CURATE_PROVIDER: gemini
+          WRITE_PROVIDER: gemini
+          CURATE_MODEL: gemini-2.0-flash
+          WRITE_MODEL: gemini-2.0-flash
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # TTS: free Edge neural voice (no macOS `say` on Linux)
+          TTS_PROVIDER: edge
+          EDGE_TTS_VOICE: en-GB-RyanNeural
+          # Personalisation
+          LISTENER_NAME: Kenneth
+          BRIEFING_TIMEZONE: Europe/Copenhagen
+        run: python briefing.py
+
+      - name: Upload MP3 to Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          FILE=$(ls -t output/briefing_*.mp3 | head -1)
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          echo "Uploading $FILE to R2 bucket $R2_BUCKET"
+          # Dated copy (archive) + a stable latest.mp3 for the iOS Shortcut.
+          aws s3 cp "$FILE" "s3://${R2_BUCKET}/$(basename "$FILE")" --endpoint-url "$ENDPOINT"
+          aws s3 cp "$FILE" "s3://${R2_BUCKET}/latest.mp3"          --endpoint-url "$ENDPOINT"
+
+      - name: Save run logs as an artifact
+        if: always() # keep debug logs even when a stage fails
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-logs
+          path: runs/
+          retention-days: 7
+          if-no-files-found: ignore
