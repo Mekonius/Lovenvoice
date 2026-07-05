@@ -3,11 +3,13 @@
 #
 # To add a feed: append a `- name: ... url: ...` entry under `feeds`.
 # `name` becomes the "source" attribute on every candidate story.
-# Feeds that fail to load are skipped with a warning — one bad URL won't
-# break the run.
+# Feeds are fetched with a browser user-agent; one that fails to load is
+# skipped with a warning — a bad URL won't break the run.
 #
-# Seeded with science / health / climate / tech desks that publish
-# consequential, verifiable progress rather than clickbait.
+# Leans science / health / climate / tech / space plus dedicated
+# solutions-journalism and good-news desks, since the editorial brief rewards
+# consequential, verifiable progress. The curator still filters out
+# clickbait and manufactured positivity.
 
 feeds:
   # ── Science ──
@@ -17,6 +19,8 @@ feeds:
     url: https://www.sciencedaily.com/rss/top/science.xml
   - name: Quanta Magazine
     url: https://api.quantamagazine.org/feed/
+  - name: Phys.org
+    url: https://phys.org/rss-feed/
 
   # ── Space ──
   - name: ESA Top News
@@ -31,12 +35,12 @@ feeds:
     url: https://www.statnews.com/feed/
 
   # ── Climate / energy / environment ──
-  - name: IEA News
-    url: https://www.iea.org/news/rss
   - name: Yale Environment 360
     url: https://e360.yale.edu/feed.xml
   - name: Carbon Brief
     url: https://www.carbonbrief.org/feed/
+  - name: Mongabay
+    url: https://news.mongabay.com/feed/
 
   # ── Technology / AI ──
   - name: MIT News
@@ -49,9 +53,15 @@ feeds:
     url: https://news.stanford.edu/feed/
   - name: Harvard Gazette
     url: https://news.harvard.edu/gazette/feed/
-  - name: University of Oxford News
-    url: https://www.ox.ac.uk/news/science-blog.xml
 
-  # ── Conservation / wildlife ──
-  - name: Mongabay
-    url: https://news.mongabay.com/feed/
+  # ── Solutions journalism / good news / global development ──
+  - name: Positive News
+    url: https://www.positive.news/feed/
+  - name: Good News Network
+    url: https://www.goodnewsnetwork.org/feed/
+  - name: Reasons to be Cheerful
+    url: https://reasonstobecheerful.world/feed/
+  - name: Our World in Data
+    url: https://ourworldindata.org/atom.xml
+  - name: UN News
+    url: https://news.un.org/feed/subscribe/en/news/all/rss.xml

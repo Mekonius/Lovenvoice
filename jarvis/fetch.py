@@ -15,6 +15,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 
 import feedparser
+import requests
 import yaml
 
 from .config import settings
@@ -26,6 +27,27 @@ LOOKBACK_HOURS = 24
 MAX_CANDIDATES = 40
 TITLE_SIMILARITY_THRESHOLD = 0.85  # entries above this are treated as duplicates
 _TAG_RE = re.compile(r"<[^>]+>")
+_FEED_TIMEOUT = 20
+
+# Many sites reject feedparser's default user-agent (returning an HTML error
+# page that fails XML parsing — the "not well-formed" errors). Fetch the bytes
+# ourselves with a browser-like UA, then hand them to feedparser.
+_FEED_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    ),
+    "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+}
+
+
+def _fetch_feed(url: str):
+    """Download a feed with a browser UA and parse the bytes with feedparser."""
+    resp = requests.get(
+        url, headers=_FEED_HEADERS, timeout=_FEED_TIMEOUT, allow_redirects=True
+    )
+    resp.raise_for_status()
+    return feedparser.parse(resp.content)
 
 
 def _load_feeds(feeds_file: Path) -> list[dict]:
@@ -93,7 +115,7 @@ def fetch_candidates(
         if not url:
             continue
         try:
-            parsed = feedparser.parse(url)
+            parsed = _fetch_feed(url)
         except Exception as exc:  # noqa: BLE001 - one bad feed must not kill the run
             log.warning("Failed to fetch feed %s (%s): %s", name, url, exc)
             continue
