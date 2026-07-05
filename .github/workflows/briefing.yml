@@ -85,9 +85,14 @@ jobs:
           FILE=$(ls -t output/briefing_*.mp3 | head -1)
           ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
           echo "Uploading $FILE to R2 bucket $R2_BUCKET"
+          # audio/mpeg so the iOS Shortcut plays it instead of downloading;
+          # no-cache on latest.mp3 so the phone always fetches the fresh one.
           # Dated copy (archive) + a stable latest.mp3 for the iOS Shortcut.
-          aws s3 cp "$FILE" "s3://${R2_BUCKET}/$(basename "$FILE")" --endpoint-url "$ENDPOINT"
-          aws s3 cp "$FILE" "s3://${R2_BUCKET}/latest.mp3"          --endpoint-url "$ENDPOINT"
+          aws s3 cp "$FILE" "s3://${R2_BUCKET}/$(basename "$FILE")" \
+            --endpoint-url "$ENDPOINT" --content-type audio/mpeg
+          aws s3 cp "$FILE" "s3://${R2_BUCKET}/latest.mp3" \
+            --endpoint-url "$ENDPOINT" --content-type audio/mpeg \
+            --cache-control "no-cache"
 
       - name: Save run logs as an artifact
         if: always() # keep debug logs even when a stage fails
