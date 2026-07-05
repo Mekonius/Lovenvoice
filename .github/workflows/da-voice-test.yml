@@ -69,44 +69,56 @@ jobs:
       # Google Cloud TTS Danish samples — more natural than edge-tts, still free
       # for daily use. Tries several voice tiers; uploads each that succeeds so
       # you can A/B them. Skipped automatically if no GOOGLE_TTS_API_KEY.
-      - name: Synthesise Google Danish samples
+      # Google Cloud TTS samples — more natural than edge-tts, still free for
+      # daily use. Danish (Chirp3-HD/WaveNet/Neural2) plus English Chirp3-HD
+      # (British + American). Uploads each that succeeds so you can A/B them.
+      - name: Synthesise Google samples
         if: ${{ env.GOOGLE_TTS_API_KEY != '' && env.R2_BUCKET != '' }}
         run: |
           python - <<'PY'
           import base64, os, requests
           key = os.environ["GOOGLE_TTS_API_KEY"]
-          script = (
+          da = (
               "Godmorgen, Kenneth. Klokken er syv, og her er dit overblik for i dag. "
               "Forskere har præsenteret et gennembrud inden for grøn energi. "
               "En ny behandling giver håb til millioner af patienter. "
               "Og et rumfartøj har netop sendt de første billeder hjem fra en fjern måne. "
               "Lad os gå i gang."
           )
-          # Female Danish voices, newest/most-natural first. Each -> its own file.
+          en = (
+              "Good morning, Kenneth. It's seven o'clock, and here's your overview for today. "
+              "Scientists have unveiled a breakthrough in green energy. "
+              "A new treatment offers hope to millions of patients. "
+              "And a spacecraft has just sent home the first images from a distant moon. "
+              "Let's get started."
+          )
+          # (filename, languageCode, voice, script) — newest/most-natural first.
           candidates = [
-              ("hd", "da-DK-Chirp3-HD-Aoede"),
-              ("wavenet", "da-DK-Wavenet-A"),
-              ("neural2", "da-DK-Neural2-D"),
+              ("da-google-hd.mp3", "da-DK", "da-DK-Chirp3-HD-Aoede", da),
+              ("da-google-wavenet.mp3", "da-DK", "da-DK-Wavenet-A", da),
+              ("da-google-neural2.mp3", "da-DK", "da-DK-Neural2-D", da),
+              ("en-google-hd-gb.mp3", "en-GB", "en-GB-Chirp3-HD-Aoede", en),
+              ("en-google-hd-us.mp3", "en-US", "en-US-Chirp3-HD-Aoede", en),
           ]
           url = "https://texttospeech.googleapis.com/v1/text:synthesize"
           made = []
-          for tag, voice in candidates:
+          for fname, lang, voice, script in candidates:
               body = {
                   "input": {"text": script},
-                  "voice": {"languageCode": "da-DK", "name": voice},
+                  "voice": {"languageCode": lang, "name": voice},
                   "audioConfig": {"audioEncoding": "MP3"},
               }
               r = requests.post(url, params={"key": key}, json=body, timeout=60)
               if r.status_code != 200:
                   print(f"[skip] {voice}: {r.status_code} {r.text[:200]}")
                   continue
-              fname = f"da-google-{tag}.mp3"
               with open(fname, "wb") as fh:
                   fh.write(base64.b64decode(r.json()["audioContent"]))
               print(f"[ok]   {voice} -> {fname}")
               made.append(fname)
+          # Trailing newline so the shell read-loop doesn't drop the last entry.
           with open("made.txt", "w") as fh:
-              fh.write("\n".join(made))
+              fh.write("\n".join(made) + "\n")
           if not made:
               raise SystemExit("No Google voice succeeded — check the API key / enabled API.")
           PY
@@ -115,7 +127,8 @@ jobs:
         if: ${{ env.GOOGLE_TTS_API_KEY != '' && env.R2_BUCKET != '' }}
         run: |
           set -euo pipefail
-          while read -r f; do
+          # `|| [ -n "$f" ]` so a final line without a newline is still processed.
+          while read -r f || [ -n "$f" ]; do
             [ -n "$f" ] || continue
             python scripts/r2_upload.py "$f" "$f" \
               --content-type audio/mpeg --cache-control no-cache
@@ -129,4 +142,5 @@ jobs:
           path: |
             da-test.mp3
             da-google-*.mp3
+            en-google-*.mp3
           if-no-files-found: warn
