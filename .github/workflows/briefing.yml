@@ -28,10 +28,6 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: auto
-      # aws-cli v2 adds integrity checksums by default that R2 doesn't include
-      # in its SigV4 calc, causing SignatureDoesNotMatch. Disable them for R2.
-      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
-      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
     steps:
       - uses: actions/checkout@v4
 
@@ -93,16 +89,15 @@ jobs:
         run: |
           set -euo pipefail
           FILE=$(ls -t output/briefing_*.mp3 | head -1)
-          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
           echo "Uploading $FILE to R2 bucket $R2_BUCKET"
+          # boto3 uploader (aws CLI trips R2 with SignatureDoesNotMatch).
           # audio/mpeg so the iOS Shortcut plays it instead of downloading;
           # no-cache on latest.mp3 so the phone always fetches the fresh one.
           # Dated copy (archive) + a stable latest.mp3 for the iOS Shortcut.
-          aws s3 cp "$FILE" "s3://${R2_BUCKET}/$(basename "$FILE")" \
-            --endpoint-url "$ENDPOINT" --content-type audio/mpeg
-          aws s3 cp "$FILE" "s3://${R2_BUCKET}/latest.mp3" \
-            --endpoint-url "$ENDPOINT" --content-type audio/mpeg \
-            --cache-control "no-cache"
+          python scripts/r2_upload.py "$FILE" "$(basename "$FILE")" \
+            --content-type audio/mpeg
+          python scripts/r2_upload.py "$FILE" latest.mp3 \
+            --content-type audio/mpeg --cache-control no-cache
 
       - name: Save run logs as an artifact
         if: always() # keep debug logs even when a stage fails
