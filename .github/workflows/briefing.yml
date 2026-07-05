@@ -21,7 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     # R2 creds live at job level so the upload step can be skipped when unset.
     env:
-      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      # Cloudflare account id — not a secret (it's in every R2 endpoint URL).
+      # Hardcoded so the upload can't fail on a missing/misnamed secret.
+      R2_ACCOUNT_ID: "92306825790dab68daed4de288efdf55"
       R2_BUCKET: ${{ secrets.R2_BUCKET }}
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
