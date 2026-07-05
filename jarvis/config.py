@@ -58,10 +58,20 @@ class Settings:
 
     # ── Text-to-speech ──
     # Which narrator to use: "auto" tries elevenlabs → edge → macOS say.
+    # "google" uses Google Cloud TTS (natural Chirp3-HD voices; needs a key).
     tts_provider: str = field(default_factory=lambda: _env("TTS_PROVIDER", "auto"))
     # edge-tts voice (free, cloud-friendly). A calm British male JARVIS-alike.
     edge_tts_voice: str = field(
         default_factory=lambda: _env("EDGE_TTS_VOICE", "en-GB-RyanNeural")
+    )
+
+    # ── Google Cloud TTS ──
+    # Natural neural voices (Chirp3-HD / WaveNet). Needs billing enabled but is
+    # free within Google's monthly character allowance. Get an API key at
+    # https://console.cloud.google.com/apis/credentials.
+    google_tts_api_key: str = field(default_factory=lambda: _env("GOOGLE_TTS_API_KEY"))
+    google_tts_voice: str = field(
+        default_factory=lambda: _env("GOOGLE_TTS_VOICE", "en-GB-Chirp3-HD-Aoede")
     )
 
     # ── ElevenLabs TTS ──

@@ -7,7 +7,9 @@ produces audio on a Mac — as a `.m4a` (AAC), since macOS cannot encode MP3.
 
 from __future__ import annotations
 
+import base64
 import logging
+import re
 import shutil
 import subprocess
 import tempfile
@@ -20,6 +22,9 @@ from .config import settings
 log = logging.getLogger(__name__)
 
 ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+GOOGLE_TTS_URL = "https://texttospeech.googleapis.com/v1/text:synthesize"
+# Google's synthesize endpoint caps input at 5000 bytes; chunk below that.
+_GOOGLE_MAX_BYTES = 4000
 _TIMEOUT_SECONDS = 300
 
 
@@ -32,6 +37,8 @@ def narrate(script: str, output_path: Path) -> Path:
 
     Provider selection follows ``TTS_PROVIDER``:
 
+    - ``google``     — Google Cloud TTS (natural Chirp3-HD/WaveNet voices; needs
+                       an API key). Writes ``.mp3``.
     - ``elevenlabs`` — paid, highest quality (needs a key + voice id).
     - ``edge``       — free Microsoft Edge neural voices, no key. Cloud-friendly
                        (works on Linux/GitHub Actions). Writes ``.mp3``.
@@ -40,6 +47,12 @@ def narrate(script: str, output_path: Path) -> Path:
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
     choice = settings.tts_provider.lower()
+
+    if choice == "google":
+        if not settings.google_tts_api_key:
+            raise NarrationError("TTS_PROVIDER=google but GOOGLE_TTS_API_KEY is not set.")
+        log.info("Narrating via Google Cloud TTS (voice=%s)", settings.google_tts_voice)
+        return _narrate_google(script, output_path)
 
     if choice in ("elevenlabs", "auto") and settings.elevenlabs_api_key:
         if not settings.elevenlabs_voice_id:
@@ -60,8 +73,75 @@ def narrate(script: str, output_path: Path) -> Path:
 
     raise NarrationError(
         f"Unknown TTS_PROVIDER {settings.tts_provider!r} "
-        "(expected 'auto', 'elevenlabs', 'edge', or 'say')."
+        "(expected 'auto', 'google', 'elevenlabs', 'edge', or 'say')."
     )
+
+
+def _chunk_for_google(text: str, max_bytes: int = _GOOGLE_MAX_BYTES) -> list[str]:
+    """Split ``text`` into <= ``max_bytes`` UTF-8 pieces on sentence boundaries.
+
+    Google's synthesize endpoint rejects input over 5000 bytes, and a full
+    briefing is far longer, so we send it in chunks and stitch the audio.
+    """
+    # Break into sentences (keep the punctuation) across all lines.
+    sentences: list[str] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        sentences.extend(s for s in re.split(r"(?<=[.!?])\s+", line) if s)
+
+    chunks: list[str] = []
+    current = ""
+    for sentence in sentences:
+        candidate = f"{current} {sentence}".strip() if current else sentence
+        if current and len(candidate.encode("utf-8")) > max_bytes:
+            chunks.append(current)
+            current = sentence
+        else:
+            current = candidate
+        # A single sentence longer than the cap: hard-split on bytes.
+        while len(current.encode("utf-8")) > max_bytes:
+            head = current.encode("utf-8")[:max_bytes].decode("utf-8", "ignore")
+            chunks.append(head)
+            current = current[len(head):].strip()
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def _narrate_google(script: str, output_path: Path) -> Path:
+    """Google Cloud TTS via the REST API. Chunks long text and joins the MP3s."""
+    voice = settings.google_tts_voice
+    # languageCode is the first two hyphen-separated parts, e.g. "en-GB".
+    language_code = "-".join(voice.split("-")[:2])
+    mp3_path = output_path.with_suffix(".mp3")
+
+    chunks = _chunk_for_google(script)
+    log.info("Google TTS: %d chunk(s) for voice %s", len(chunks), voice)
+    audio = bytearray()
+    for i, chunk in enumerate(chunks, 1):
+        body = {
+            "input": {"text": chunk},
+            "voice": {"languageCode": language_code, "name": voice},
+            "audioConfig": {"audioEncoding": "MP3"},
+        }
+        resp = requests.post(
+            GOOGLE_TTS_URL,
+            params={"key": settings.google_tts_api_key},
+            json=body,
+            timeout=60,
+        )
+        if resp.status_code != 200:
+            raise NarrationError(
+                f"Google TTS error {resp.status_code} on chunk {i}/{len(chunks)}: "
+                f"{resp.text[:400]}"
+            )
+        audio.extend(base64.b64decode(resp.json()["audioContent"]))
+
+    mp3_path.write_bytes(bytes(audio))
+    log.info("Wrote %s (%d bytes) via Google TTS", mp3_path, mp3_path.stat().st_size)
+    return mp3_path
 
 
 def _narrate_edge_tts(script: str, output_path: Path) -> Path:
