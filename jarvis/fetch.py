@@ -24,7 +24,10 @@ log = logging.getLogger(__name__)
 
 # Tunables for candidate collection.
 LOOKBACK_HOURS = 24
-MAX_CANDIDATES = 40
+# Kept modest so the whole candidate list fits the curate model's per-minute
+# token budget (Groq free-tier 8B = 6k tokens/request). 20 is plenty to pick 10.
+MAX_CANDIDATES = 18
+SUMMARY_MAX_CHARS = 240  # trim feed summaries so the curate prompt stays small
 TITLE_SIMILARITY_THRESHOLD = 0.85  # entries above this are treated as duplicates
 _TAG_RE = re.compile(r"<[^>]+>")
 _FEED_TIMEOUT = 20
@@ -139,7 +142,9 @@ def fetch_candidates(
             collected.append(
                 {
                     "title": title,
-                    "summary": _clean(entry.get("summary", entry.get("description", ""))),
+                    "summary": _clean(
+                        entry.get("summary", entry.get("description", ""))
+                    )[:SUMMARY_MAX_CHARS],
                     "source": name,
                     "link": entry.get("link", ""),
                     "published": published.isoformat() if published else "",
