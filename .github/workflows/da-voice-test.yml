@@ -29,6 +29,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: auto
+      GOOGLE_TTS_API_KEY: ${{ secrets.GOOGLE_TTS_API_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -65,10 +66,67 @@ jobs:
           python scripts/r2_upload.py da-test.mp3 da-test.mp3 \
             --content-type audio/mpeg --cache-control no-cache
 
+      # Google Cloud TTS Danish samples — more natural than edge-tts, still free
+      # for daily use. Tries several voice tiers; uploads each that succeeds so
+      # you can A/B them. Skipped automatically if no GOOGLE_TTS_API_KEY.
+      - name: Synthesise Google Danish samples
+        if: ${{ env.GOOGLE_TTS_API_KEY != '' && env.R2_BUCKET != '' }}
+        run: |
+          python - <<'PY'
+          import base64, os, requests
+          key = os.environ["GOOGLE_TTS_API_KEY"]
+          script = (
+              "Godmorgen, Kenneth. Klokken er syv, og her er dit overblik for i dag. "
+              "Forskere har præsenteret et gennembrud inden for grøn energi. "
+              "En ny behandling giver håb til millioner af patienter. "
+              "Og et rumfartøj har netop sendt de første billeder hjem fra en fjern måne. "
+              "Lad os gå i gang."
+          )
+          # Female Danish voices, newest/most-natural first. Each -> its own file.
+          candidates = [
+              ("hd", "da-DK-Chirp3-HD-Aoede"),
+              ("wavenet", "da-DK-Wavenet-A"),
+              ("neural2", "da-DK-Neural2-D"),
+          ]
+          url = "https://texttospeech.googleapis.com/v1/text:synthesize"
+          made = []
+          for tag, voice in candidates:
+              body = {
+                  "input": {"text": script},
+                  "voice": {"languageCode": "da-DK", "name": voice},
+                  "audioConfig": {"audioEncoding": "MP3"},
+              }
+              r = requests.post(url, params={"key": key}, json=body, timeout=60)
+              if r.status_code != 200:
+                  print(f"[skip] {voice}: {r.status_code} {r.text[:200]}")
+                  continue
+              fname = f"da-google-{tag}.mp3"
+              with open(fname, "wb") as fh:
+                  fh.write(base64.b64decode(r.json()["audioContent"]))
+              print(f"[ok]   {voice} -> {fname}")
+              made.append(fname)
+          with open("made.txt", "w") as fh:
+              fh.write("\n".join(made))
+          if not made:
+              raise SystemExit("No Google voice succeeded — check the API key / enabled API.")
+          PY
+
+      - name: Upload Google samples to R2
+        if: ${{ env.GOOGLE_TTS_API_KEY != '' && env.R2_BUCKET != '' }}
+        run: |
+          set -euo pipefail
+          while read -r f; do
+            [ -n "$f" ] || continue
+            python scripts/r2_upload.py "$f" "$f" \
+              --content-type audio/mpeg --cache-control no-cache
+          done < made.txt
+
       - name: Also attach as an artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: da-voice-sample
-          path: da-test.mp3
+          path: |
+            da-test.mp3
+            da-google-*.mp3
           if-no-files-found: warn
