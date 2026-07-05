@@ -19,18 +19,22 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: auto
-      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
-      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
     steps:
-      - name: Upload a test object to R2
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install boto3
+        run: pip install "boto3>=1.35.0"
+
+      - name: Upload a test object to R2 (boto3)
         run: |
           set -euo pipefail
-          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
           echo "R2_BUCKET set? ${R2_BUCKET:+yes}"
           echo "AWS_ACCESS_KEY_ID length: ${#AWS_ACCESS_KEY_ID}"
           echo "AWS_SECRET_ACCESS_KEY length: ${#AWS_SECRET_ACCESS_KEY}"
           echo "jarvis r2 test at $(date -u)" > r2-test.txt
-          aws s3 cp r2-test.txt "s3://${R2_BUCKET}/r2-test.txt" \
-            --endpoint-url "$ENDPOINT" --content-type text/plain
-          echo "✅ Upload OK — credentials work. Bucket contents:"
-          aws s3 ls "s3://${R2_BUCKET}/" --endpoint-url "$ENDPOINT"
+          python scripts/r2_upload.py r2-test.txt r2-test.txt --content-type text/plain
+          echo "✅ Upload OK — credentials work."

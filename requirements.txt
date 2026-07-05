@@ -12,5 +12,10 @@ edge-tts>=6.1.0
 # Optional provider swap — only needed if you set *_PROVIDER=openai
 openai>=1.51.0
 
+# Cloudflare R2 upload (S3-compatible). Used by scripts/r2_upload.py for the
+# hands-off phone delivery. boto3 lets us disable the flexible-checksum trailers
+# that make the aws CLI fail against R2 with SignatureDoesNotMatch.
+boto3>=1.35.0
+
 # Note: the "gemini" and "ollama" providers use plain HTTP (requests) — no
 # extra SDK required.
