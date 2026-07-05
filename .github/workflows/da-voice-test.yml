@@ -1,0 +1,74 @@
+name: Danish Voice Test
+
+# Quick way to hear a short Danish sample without running the whole briefing.
+# Synthesises a few sentences with a Danish edge-tts voice and uploads it to R2
+# as da-test.mp3, so you can play it from your phone at
+#   https://pub-830b7f13c48643f69223da92bbfda349.r2.dev/da-test.mp3
+# Run manually from the Actions tab; pick the voice from the dropdown.
+
+on:
+  workflow_dispatch:
+    inputs:
+      voice:
+        description: "Danish voice to test"
+        type: choice
+        default: da-DK-ChristelNeural
+        options:
+          - da-DK-ChristelNeural # female
+          - da-DK-JeppeNeural # male
+
+permissions:
+  contents: read
+
+jobs:
+  davoice:
+    runs-on: ubuntu-latest
+    env:
+      R2_ACCOUNT_ID: "92306825790dab68daed4de288efdf55"
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install "edge-tts>=6.1.0" "boto3>=1.35.0"
+
+      - name: Synthesise Danish sample
+        env:
+          VOICE: ${{ inputs.voice }}
+        run: |
+          python - <<'PY'
+          import asyncio, os, edge_tts
+          voice = os.environ["VOICE"]
+          script = (
+              "Godmorgen, Kenneth. Klokken er syv, og her er dit overblik for i dag. "
+              "Forskere har præsenteret et gennembrud inden for grøn energi. "
+              "En ny behandling giver håb til millioner af patienter. "
+              "Og et rumfartøj har netop sendt de første billeder hjem fra en fjern måne. "
+              "Lad os gå i gang."
+          )
+          async def main():
+              await edge_tts.Communicate(script, voice).save("da-test.mp3")
+          asyncio.run(main())
+          print("Wrote da-test.mp3 with voice", voice)
+          PY
+
+      - name: Upload sample to R2
+        if: ${{ env.R2_BUCKET != '' }}
+        run: |
+          python scripts/r2_upload.py da-test.mp3 da-test.mp3 \
+            --content-type audio/mpeg --cache-control no-cache
+
+      - name: Also attach as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: da-voice-sample
+          path: da-test.mp3
+          if-no-files-found: warn
