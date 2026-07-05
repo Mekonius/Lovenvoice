@@ -57,10 +57,13 @@ jobs:
           FALLBACK_PROVIDER: gemini
           FALLBACK_MODEL: gemini-2.0-flash
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          # TTS: free Edge neural voice (no macOS `say` on Linux)
-          TTS_PROVIDER: edge
-          # Calm British female. Swap for en-GB-LibbyNeural, en-US-AriaNeural,
-          # or en-US-JennyNeural to taste (edge-tts --list-voices).
+          # TTS: Google Cloud TTS — natural British-female Chirp 3 HD voice.
+          # Free within Google's monthly character allowance (billing enabled).
+          # Swap the voice via GOOGLE_TTS_VOICE, e.g. en-US-Chirp3-HD-Aoede.
+          TTS_PROVIDER: google
+          GOOGLE_TTS_VOICE: en-GB-Chirp3-HD-Aoede
+          GOOGLE_TTS_API_KEY: ${{ secrets.GOOGLE_TTS_API_KEY }}
+          # Fallback voice if you ever set TTS_PROVIDER=edge (free, no key).
           EDGE_TTS_VOICE: en-GB-SoniaNeural
           # Personalisation
           LISTENER_NAME: Kenneth
