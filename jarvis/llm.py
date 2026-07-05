@@ -21,8 +21,11 @@ from .config import settings
 
 log = logging.getLogger(__name__)
 
-# Shared generation defaults. Kept conservative — briefings are short.
-_MAX_TOKENS = 4096
+# Shared generation defaults. Kept small so a whole request (input + this
+# output reservation) fits Groq's free-tier 8B per-minute budget (6k tokens).
+# Curate needs ~850 output for 10 JSON objects; write segments ~600 — 2048 is
+# ample for both.
+_MAX_TOKENS = 2048
 _TEMPERATURE = 0.4
 
 # Retry a rate-limited (429) provider this many times before giving up on it.
