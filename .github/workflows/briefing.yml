@@ -28,6 +28,10 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       AWS_DEFAULT_REGION: auto
+      # aws-cli v2 adds integrity checksums by default that R2 doesn't include
+      # in its SigV4 calc, causing SignatureDoesNotMatch. Disable them for R2.
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
     steps:
       - uses: actions/checkout@v4
 
@@ -85,6 +89,7 @@ jobs:
       # added the R2 secrets (R2_BUCKET etc.).
       - name: Upload MP3 to Cloudflare R2
         if: ${{ env.R2_BUCKET != '' }}
+        continue-on-error: true # delivery is best-effort; the audio artifact is the deliverable
         run: |
           set -euo pipefail
           FILE=$(ls -t output/briefing_*.mp3 | head -1)
