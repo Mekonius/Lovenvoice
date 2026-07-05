@@ -87,7 +87,12 @@ def call(provider: str, model: str, system: str, prompt: str) -> str:
 
 
 def _dispatch_retrying(provider: str, model: str, system: str, prompt: str) -> str:
-    """Dispatch, retrying on rate-limit (429) with the provider's suggested wait."""
+    """Dispatch, retrying on rate-limit (429) and transient network errors.
+
+    Rate limits honour the provider's suggested wait; network errors (timeouts,
+    connection resets) back off exponentially. Both are common on free tiers and
+    shouldn't fail the whole briefing.
+    """
     for attempt in range(_RETRY_MAX + 1):
         try:
             return _dispatch(provider, model, system, prompt)
@@ -98,6 +103,15 @@ def _dispatch_retrying(provider: str, model: str, system: str, prompt: str) -> s
             log.warning(
                 "Rate limited by %s/%s (attempt %d/%d); waiting %.1fs then retrying",
                 provider, model, attempt + 1, _RETRY_MAX, wait,
+            )
+            time.sleep(wait)
+        except requests.exceptions.RequestException as exc:
+            if attempt >= _RETRY_MAX:
+                raise
+            wait = min(2.0 * (2 ** attempt), _RETRY_CAP_SECONDS)
+            log.warning(
+                "Network error from %s/%s (%s) (attempt %d/%d); waiting %.1fs then retrying",
+                provider, model, exc.__class__.__name__, attempt + 1, _RETRY_MAX, wait,
             )
             time.sleep(wait)
     raise RuntimeError("unreachable")  # pragma: no cover
@@ -216,7 +230,7 @@ def _call_groq(model: str, system: str, prompt: str) -> str:
             "temperature": _TEMPERATURE,
             "max_tokens": _MAX_TOKENS,
         },
-        timeout=120,
+        timeout=60,
     )
     if resp.status_code == 429:
         raise RateLimitError(f"Groq error 429: {resp.text[:300]}", _retry_after_seconds(resp))
@@ -243,7 +257,7 @@ def _call_gemini(model: str, system: str, prompt: str) -> str:
         "generationConfig": {"temperature": _TEMPERATURE, "maxOutputTokens": _MAX_TOKENS},
     }
     resp = requests.post(
-        url, params={"key": settings.gemini_api_key}, json=payload, timeout=120
+        url, params={"key": settings.gemini_api_key}, json=payload, timeout=60
     )
     if resp.status_code == 429:
         raise RateLimitError(f"Gemini error 429: {resp.text[:300]}", _retry_after_seconds(resp))
