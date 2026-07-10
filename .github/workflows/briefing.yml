@@ -46,12 +46,13 @@ jobs:
           # its free quota ever activates it'll be used when Groq rate-limits.
           CURATE_PROVIDER: groq
           WRITE_PROVIDER: groq
-          # Both stages on the lighter 8B: Groq's free tier caps the 70B model at
-          # 100k tokens/DAY, too small to run the full pipeline reliably (a
-          # 10-story briefing ~30k tokens, so re-runs/busy days blow the cap).
-          # 8B has a far higher daily budget and is faster; the correspondent
-          # voice now comes mostly from the prompts.
-          CURATE_MODEL: llama-3.1-8b-instant
+          # Curation runs on the stronger 70B for better editorial judgment
+          # (rejecting warning/alarm stories, holding the positive-progress bar).
+          # It's a SINGLE call/day (~few k tokens), so it stays well under Groq's
+          # 70B 100k-tokens/DAY free cap. Writing stays on the fast 8B — it's ~11
+          # calls/run, which would blow that cap on 70B; the voice comes from the
+          # prompts, not the model size.
+          CURATE_MODEL: llama-3.3-70b-versatile
           WRITE_MODEL: llama-3.1-8b-instant
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           FALLBACK_PROVIDER: gemini
