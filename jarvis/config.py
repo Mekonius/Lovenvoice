@@ -87,6 +87,9 @@ class Settings:
     # ── Personalisation ──
     listener_name: str = field(default_factory=lambda: _env("LISTENER_NAME", "Kenneth"))
     timezone: str = field(default_factory=lambda: _env("BRIEFING_TIMEZONE", "Europe/Copenhagen"))
+    # Language the briefing is written and spoken in, e.g. "English" or "Danish".
+    # Curation stays internal; only the spoken script is translated.
+    briefing_language: str = field(default_factory=lambda: _env("BRIEFING_LANGUAGE", "English"))
 
     def provider_key(self, provider: str) -> str:
         """API key for a provider name, or empty string if unconfigured."""

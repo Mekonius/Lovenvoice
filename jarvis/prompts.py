@@ -99,14 +99,20 @@ def story_prompt(story: dict) -> str:
     )
 
 
-def intro_prompt(listener_name: str, time_phrase: str, stories: list[dict]) -> str:
+def intro_prompt(
+    listener_name: str, time_phrase: str, stories: list[dict], language: str = "English"
+) -> str:
     """Prompt for the opening lines of the briefing."""
     headlines = "\n".join(f"- {s['headline']}" for s in stories)
+    if language.strip().lower().startswith("dan"):
+        opener = f"Godmorgen, {listener_name}. Klokken er {time_phrase}."
+    else:
+        opener = f"Good morning, {listener_name}. It's {time_phrase}."
     return (
         "Write a short spoken intro for the morning briefing — two to four "
         "sentences. It must open with exactly this sentence, then continue "
         "naturally by hinting at the shape of today's stories without listing "
-        f'them:\n\n"Good morning, {listener_name}. It\'s {time_phrase}."\n\n'
+        f'them:\n\n"{opener}"\n\n'
         f"Today's selected headlines, for your context only:\n{headlines}"
     )
 
